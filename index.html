@@ -477,12 +477,17 @@
                     const y = (rowStartY + index * rowHeight) * scale;
                     // Row numbers already exist in the original template.
                     drawCenteredText(context, expense.date || "", 694 * scale, y, 6.2 * scale, false);
-                    const description = expense.description || expense.vendor || "";
-                    drawRtlText(context, description.slice(0, 25), 654 * scale, y, 6.1 * scale, false);
-                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), categoryColumnX(expense.category, scale), y, 7 * scale, false);
-                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), 195 * scale, y, 6.2 * scale, false);
-                    if (expense.guests) drawRtlText(context, expense.guests.slice(0, 20), 158 * scale, y, 6.2 * scale, false);
-                    // Invoice number is stored in the app but is not printed in the admin-only reference column.
+                    let description = expense.description || expense.vendor || "";
+                    if (expense.invoiceNumber) {
+                        description += " | חשבונית: " + expense.invoiceNumber;
+                    }
+                    drawRtlText(context, description.slice(0, 38), 654 * scale, y, 5.7 * scale, false);
+                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), categoryColumnX(expense.category, scale), y - (expense.carNumber ? 2.4 * scale : 0), 6.4 * scale, false);
+                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), 122 * scale, y, 6.2 * scale, false);
+                    if (expense.guests) drawCenteredText(context, expense.guests.slice(0, 18), 42 * scale, y, 5.8 * scale, false);
+                    if (expense.carNumber) {
+                        drawCenteredText(context, "רכב: " + expense.carNumber.slice(0, 14), 478 * scale, y + 3.7 * scale, 4.8 * scale, false);
+                    }
                 });
 
                 const totals = {};
@@ -493,11 +498,11 @@
                 const totalsText = Object.keys(totals).map(function (currency) {
                     return formatMoney(totals[currency], currency);
                 }).join(" / ");
-                drawCenteredText(context, totalsText, 253 * scale, 449 * scale, 6.8 * scale, true);
-                drawCenteredText(context, fullName, 700 * scale, 501 * scale, 6.4 * scale, false);
-                drawCenteredText(context, reportDate, 700 * scale, 536 * scale, 6.4 * scale, false);
-                drawCenteredText(context, approver.trim(), 520 * scale, 501 * scale, 6.4 * scale, false);
-                drawCenteredText(context, reportDate, 520 * scale, 536 * scale, 6.4 * scale, false);
+                drawCenteredText(context, totalsText, 195 * scale, 449 * scale, 6.8 * scale, true);
+                drawCenteredText(context, fullName, 700 * scale, 507 * scale, 6.4 * scale, false);
+                drawCenteredText(context, reportDate, 700 * scale, 544 * scale, 6.4 * scale, false);
+                drawCenteredText(context, approver.trim(), 520 * scale, 507 * scale, 6.4 * scale, false);
+                drawCenteredText(context, reportDate, 520 * scale, 544 * scale, 6.4 * scale, false);
 
                 const signatureImage = new Image();
                 await new Promise(function (resolve, reject) {
