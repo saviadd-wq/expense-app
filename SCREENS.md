@@ -1,4 +1,4 @@
-# Screens
+<img width="1870" height="921" alt="image" src="https://github.com/user-attachments/assets/5f860e46-3493-40cd-8319-dcd5fb859049" /># Screens
 
 ## Screen 1 - Setup
 
@@ -38,6 +38,8 @@ Fields:
 - Amount
 - Category
 - Description
+- Car Number (optional)
+- Guests (optional)
 
 Buttons:
 
