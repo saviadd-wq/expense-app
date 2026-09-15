@@ -1,32 +1,22 @@
 <!DOCTYPE html>
-<html lang="he">
-
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense App</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-
     <div class="container">
-
-        <!-- מסך הגדרות -->
-
         <div id="setupScreen" style="display:none;">
-
             <h1>Expense App</h1>
-
             <h2>הגדרה ראשונית</h2>
-
             <p>הנתונים נשמרים במכשיר וימולאו אוטומטית בטופסי ההוצאות.</p>
 
-            <label>שם מלא</label>
+            <label for="fullName">שם מלא</label>
             <input type="text" id="fullName">
 
-            <label>מחלקה</label>
-
+            <label for="department">מחלקה</label>
             <select id="department">
                 <option value="">בחר מחלקה</option>
                 <option>שיווק</option>
@@ -40,20 +30,12 @@
                 <option>אחר</option>
             </select>
 
-            <button onclick="saveUser()">
-                שמירה
-            </button>
-
+            <button type="button" id="saveUserButton">שמירה</button>
             <div id="savedMessage" class="success"></div>
-
         </div>
 
-        <!-- מסך בית -->
-
         <div id="homeScreen" style="display:none;">
-
             <h1>Expense App</h1>
-
             <h2 id="welcomeTitle"></h2>
 
             <p>
@@ -64,50 +46,34 @@
 
             <p>
                 סה"כ:
-                <strong id="totalAmount">₪0</strong>
+                <strong id="totalAmount">₪0.00</strong>
             </p>
 
-            <button onclick="showAddExpense()">
-                ➕ הוצאה חדשה
-            </button>
-
-            <button>
-                📄 הפק טופס
-            </button>
-
-            <button onclick="showSettings()">
-                ⚙️ הגדרות
-            </button>
+            <button type="button" id="showAddExpenseButton">➕ הוצאה חדשה</button>
+            <button type="button">📄 הפק טופס</button>
+            <button type="button" id="showSettingsButton">⚙️ הגדרות</button>
 
             <hr>
-
             <h3>הוצאות אחרונות</h3>
-
-            <div id="recentExpenses">
-                אין הוצאות עדיין
-            </div>
-
+            <div id="recentExpenses">אין הוצאות עדיין</div>
         </div>
 
-        <!-- מסך הוצאה חדשה -->
-
         <div id="addExpenseScreen" style="display:none;">
-
             <h1>הוצאה חדשה</h1>
 
-            <label>חשבונית</label>
-            <input type="file" id="receiptImage">
+            <label for="receiptImage">חשבונית</label>
+            <input type="file" id="receiptImage" accept="image/*">
 
-            <label>תאריך</label>
-            <input type="text" id="expenseDate" placeholder="15.09.26">
+            <label for="expenseDate">תאריך</label>
+            <input type="text" id="expenseDate" placeholder="15.09.26" inputmode="numeric">
 
-            <label>ספק</label>
+            <label for="vendor">ספק</label>
             <input type="text" id="vendor">
 
-            <label>סכום</label>
-            <input type="number" id="amount">
+            <label for="amount">סכום</label>
+            <input type="text" id="amount" placeholder="0.00" inputmode="decimal">
 
-            <label>קטגוריה</label>
+            <label for="category">קטגוריה</label>
             <select id="category">
                 <option>הוצאות רכב</option>
                 <option>כיבודים למשרד</option>
@@ -119,307 +85,233 @@
                 <option>הוצאות אחרות</option>
             </select>
 
-            <label>תיאור</label>
+            <label for="description">תיאור</label>
             <input type="text" id="description">
 
-            <label>מספר רכב (אופציונלי)</label>
+            <label for="carNumber">מספר רכב (אופציונלי)</label>
             <input type="text" id="carNumber">
 
-            <label>אורחים (אופציונלי)</label>
+            <label for="guests">אורחים (אופציונלי)</label>
             <input type="text" id="guests">
 
             <br><br>
-
-            <button onclick="saveExpenseRecord()">
-                שמור
-            </button>
-
-            <button onclick="backToHome()">
-                חזור
-            </button>
-
+            <button type="button" id="saveExpenseButton">שמור</button>
+            <button type="button" id="backToHomeButton">חזור</button>
         </div>
-
     </div>
 
     <script>
-
         function getExpenses() {
+            const stored = localStorage.getItem("expenses");
+            if (!stored) return [];
 
-            const expenses =
-                localStorage.getItem("expenses");
-
-            if (!expenses) {
+            try {
+                const parsed = JSON.parse(stored);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                console.error("שגיאה בקריאת ההוצאות", error);
                 return [];
             }
+        }
 
-            return JSON.parse(expenses);
+        function storeExpenses(expenses) {
+            localStorage.setItem("expenses", JSON.stringify(expenses));
+        }
+
+        function escapeHtml(value) {
+            const element = document.createElement("div");
+            element.textContent = String(value ?? "");
+            return element.innerHTML;
+        }
+
+        function parseAmount(value) {
+            const normalized = String(value)
+                .trim()
+                .replace(/\s/g, "")
+                .replace(/₪/g, "")
+                .replace(/,/g, ".");
+
+            return Number(normalized);
+        }
+
+        function formatAmount(value) {
+            return Number(value || 0).toLocaleString("he-IL", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
         }
 
         function updateHomeScreen() {
+            const expenses = getExpenses();
+            const countElement = document.getElementById("expenseCount");
+            const totalElement = document.getElementById("totalAmount");
+            const listElement = document.getElementById("recentExpenses");
 
-            const expenses =
-                getExpenses();
+            countElement.textContent = expenses.length;
 
-            document.getElementById(
-                "expenseCount"
-            ).innerText =
-                expenses.length;
+            const total = expenses.reduce(function (sum, expense) {
+                return sum + Number(expense.amount || 0);
+            }, 0);
 
-            let total = 0;
+            totalElement.textContent = "₪" + formatAmount(total);
 
-            expenses.forEach(expense => {
-
-                total += Number(
-                    expense.amount || 0
-                );
-            });
-
-            document.getElementById(
-                "totalAmount"
-            ).innerText =
-                "₪" + total;
-
-            const recentExpenses =
-                document.getElementById(
-                    "recentExpenses"
-                );
-
-            if(expenses.length === 0) {
-
-                recentExpenses.innerHTML =
-                    "אין הוצאות עדיין";
-
+            if (expenses.length === 0) {
+                listElement.textContent = "אין הוצאות עדיין";
                 return;
             }
 
             let html = "";
 
-            expenses
-                .slice()
-                .reverse()
-                .forEach(expense => {
+            for (let index = expenses.length - 1; index >= 0; index -= 1) {
+                const expense = expenses[index];
 
-                    html +=
-                    "<p>" +
-                    expense.date +
-                    " | " +
-                    expense.vendor +
-                    " | ₪" +
-                    expense.amount +
-                    "</p>";
+                html +=
+                    '<div style="margin-bottom:15px;padding-bottom:12px;border-bottom:1px solid #ddd;">' +
+                        '<p style="margin:0 0 8px 0;">' +
+                            escapeHtml(expense.date) + " | " +
+                            escapeHtml(expense.vendor) + " | ₪" +
+                            formatAmount(expense.amount) +
+                        '</p>' +
+                        '<button type="button" class="delete-expense-button" data-index="' + index + '">🗑️ מחיקה</button>' +
+                    '</div>';
+            }
+
+            listElement.innerHTML = html;
+
+            document.querySelectorAll(".delete-expense-button").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    deleteExpense(Number(button.dataset.index));
                 });
-
-            recentExpenses.innerHTML =
-                html;
+            });
         }
 
-        function saveExpenseRecord() {
+        function deleteExpense(index) {
+            const expenses = getExpenses();
 
-            const expense = {
-
-                date:
-                    document.getElementById(
-                        "expenseDate"
-                    ).value,
-
-                vendor:
-                    document.getElementById(
-                        "vendor"
-                    ).value,
-
-                amount:
-                    document.getElementById(
-                        "amount"
-                    ).value,
-
-                category:
-                    document.getElementById(
-                        "category"
-                    ).value,
-
-                description:
-                    document.getElementById(
-                        "description"
-                    ).value,
-
-                carNumber:
-                    document.getElementById(
-                        "carNumber"
-                    ).value,
-
-                guests:
-                    document.getElementById(
-                        "guests"
-                    ).value
-            };
-
-            const expenses =
-                getExpenses();
-
-            expenses.push(expense);
-
-            localStorage.setItem(
-                "expenses",
-                JSON.stringify(expenses)
-            );
-
-            alert("✅ ההוצאה נשמרה");
-
-            backToHome();
-        }
-
-        function showAddExpense() {
-
-            document.getElementById(
-                "homeScreen"
-            ).style.display =
-                "none";
-
-            document.getElementById(
-                "addExpenseScreen"
-            ).style.display =
-                "block";
-        }
-
-        function backToHome() {
-
-            document.getElementById(
-                "addExpenseScreen"
-            ).style.display =
-                "none";
-
-            document.getElementById(
-                "homeScreen"
-            ).style.display =
-                "block";
-
-            updateHomeScreen();
-        }
-
-        function saveUser() {
-
-            const fullName =
-                document.getElementById(
-                    "fullName"
-                ).value;
-
-            const department =
-                document.getElementById(
-                    "department"
-                ).value;
-
-            if (!fullName || !department) {
-
-                alert(
-                    "נא למלא שם ומחלקה"
-                );
-
+            if (!Number.isInteger(index) || index < 0 || index >= expenses.length) {
+                alert("לא ניתן למצוא את ההוצאה למחיקה");
                 return;
             }
 
-            localStorage.setItem(
-                "fullName",
-                fullName
-            );
+            const vendor = expenses[index].vendor || "";
+            const message = vendor
+                ? "האם למחוק את ההוצאה של " + vendor + "?"
+                : "האם למחוק את ההוצאה?";
 
-            localStorage.setItem(
-                "department",
-                department
-            );
+            if (!window.confirm(message)) return;
 
-            loadHomeScreen();
-        }
-
-        function loadHomeScreen() {
-
-            const fullName =
-                localStorage.getItem(
-                    "fullName"
-                );
-
-            document.getElementById(
-                "setupScreen"
-            ).style.display =
-                "none";
-
-            document.getElementById(
-                "addExpenseScreen"
-            ).style.display =
-                "none";
-
-            document.getElementById(
-                "homeScreen"
-            ).style.display =
-                "block";
-
-            document.getElementById(
-                "welcomeTitle"
-            ).innerHTML =
-                "שלום " + fullName;
-
+            expenses.splice(index, 1);
+            storeExpenses(expenses);
             updateHomeScreen();
         }
 
-        function showSettings() {
-
-            document.getElementById(
-                "homeScreen"
-            ).style.display =
-                "none";
-
-            document.getElementById(
-                "setupScreen"
-            ).style.display =
-                "block";
+        function clearExpenseForm() {
+            document.getElementById("receiptImage").value = "";
+            document.getElementById("expenseDate").value = "";
+            document.getElementById("vendor").value = "";
+            document.getElementById("amount").value = "";
+            document.getElementById("category").value = "הוצאות רכב";
+            document.getElementById("description").value = "";
+            document.getElementById("carNumber").value = "";
+            document.getElementById("guests").value = "";
         }
 
-        window.onload = function () {
+        function saveExpenseRecord() {
+            const date = document.getElementById("expenseDate").value.trim();
+            const vendor = document.getElementById("vendor").value.trim();
+            const amountText = document.getElementById("amount").value;
+            const amount = parseAmount(amountText);
 
-            const fullName =
-                localStorage.getItem(
-                    "fullName"
-                );
-
-            const department =
-                localStorage.getItem(
-                    "department"
-                );
-
-            if (fullName) {
-
-                document.getElementById(
-                    "fullName"
-                ).value =
-                    fullName;
+            if (!date) {
+                alert("נא למלא תאריך");
+                return;
             }
 
-            if (department) {
-
-                document.getElementById(
-                    "department"
-                ).value =
-                    department;
+            if (!vendor) {
+                alert("נא למלא ספק");
+                return;
             }
 
-            if (
-                fullName &&
-                department
-            ) {
+            if (!amountText.trim() || !Number.isFinite(amount) || amount <= 0) {
+                alert("נא למלא סכום תקין");
+                return;
+            }
 
-                loadHomeScreen();
+            const expense = {
+                date: date,
+                vendor: vendor,
+                amount: amount,
+                category: document.getElementById("category").value,
+                description: document.getElementById("description").value.trim(),
+                carNumber: document.getElementById("carNumber").value.trim(),
+                guests: document.getElementById("guests").value.trim()
+            };
 
+            const expenses = getExpenses();
+            expenses.push(expense);
+            storeExpenses(expenses);
+
+            clearExpenseForm();
+            alert("✅ ההוצאה נשמרה");
+            showHomeScreen();
+        }
+
+        function showHomeScreen() {
+            document.getElementById("setupScreen").style.display = "none";
+            document.getElementById("addExpenseScreen").style.display = "none";
+            document.getElementById("homeScreen").style.display = "block";
+
+            const fullName = localStorage.getItem("fullName") || "";
+            document.getElementById("welcomeTitle").textContent = "שלום " + fullName;
+            updateHomeScreen();
+        }
+
+        function showAddExpense() {
+            document.getElementById("setupScreen").style.display = "none";
+            document.getElementById("homeScreen").style.display = "none";
+            document.getElementById("addExpenseScreen").style.display = "block";
+        }
+
+        function showSettings() {
+            document.getElementById("homeScreen").style.display = "none";
+            document.getElementById("addExpenseScreen").style.display = "none";
+            document.getElementById("setupScreen").style.display = "block";
+        }
+
+        function saveUser() {
+            const fullName = document.getElementById("fullName").value.trim();
+            const department = document.getElementById("department").value;
+
+            if (!fullName || !department) {
+                alert("נא למלא שם ומחלקה");
+                return;
+            }
+
+            localStorage.setItem("fullName", fullName);
+            localStorage.setItem("department", department);
+            document.getElementById("savedMessage").textContent = "✅ הנתונים נשמרו בהצלחה";
+            showHomeScreen();
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById("saveUserButton").addEventListener("click", saveUser);
+            document.getElementById("showAddExpenseButton").addEventListener("click", showAddExpense);
+            document.getElementById("showSettingsButton").addEventListener("click", showSettings);
+            document.getElementById("saveExpenseButton").addEventListener("click", saveExpenseRecord);
+            document.getElementById("backToHomeButton").addEventListener("click", showHomeScreen);
+
+            const fullName = localStorage.getItem("fullName");
+            const department = localStorage.getItem("department");
+
+            if (fullName) document.getElementById("fullName").value = fullName;
+            if (department) document.getElementById("department").value = department;
+
+            if (fullName && department) {
+                showHomeScreen();
             } else {
-
-                document.getElementById(
-                    "setupScreen"
-                ).style.display =
-                    "block";
+                document.getElementById("setupScreen").style.display = "block";
             }
-        };
-
+        });
     </script>
-
 </body>
-
 </html>
