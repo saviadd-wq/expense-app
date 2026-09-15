@@ -1,0 +1,17 @@
+body {
+    font-family: Arial, sans-serif;
+    direction: rtl;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #1f4e79;
+}
+
+button {
+    padding: 10px 20px;
+    margin: 5px;
+    cursor: pointer;
+}
