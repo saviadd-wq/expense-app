@@ -1,48 +1,257 @@
-body {
-    font-family: Arial, sans-serif;
-    direction: rtl;
-    background-color: #f4f6f9;
-    margin: 0;
-    padding: 20px;
+:root {
+    --primary: #225783;
+    --primary-dark: #173f61;
+    --background: #f4f6f9;
+    --surface: #ffffff;
+    --text: #17212b;
+    --muted: #667085;
+    --border: #d8dee6;
+    --success: #147a3d;
+    --danger: #b42318;
+    --danger-dark: #8f1b13;
+    --shadow: 0 8px 28px rgba(31, 78, 121, 0.12);
 }
 
-.container {
-    background: white;
-    max-width: 600px;
-    margin: auto;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-h1 {
-    color: #1f4e79;
-    margin-top: 0;
-}
-
-input,
-select {
-    width: 100%;
-    padding: 12px;
-    margin-top: 5px;
-    margin-bottom: 15px;
+* {
     box-sizing: border-box;
 }
 
+html {
+    direction: rtl;
+    background: var(--background);
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    direction: rtl;
+    color: var(--text);
+    background: var(--background);
+    font-family: Arial, "Segoe UI", sans-serif;
+    line-height: 1.5;
+}
+
+.container {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px;
+    overflow: hidden;
+    background: var(--surface);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+}
+
+h1 {
+    margin: 0 0 22px;
+    color: var(--primary);
+    font-size: clamp(2rem, 7vw, 3rem);
+    line-height: 1.15;
+}
+
+h2 {
+    margin: 0 0 20px;
+    font-size: clamp(1.5rem, 5vw, 2.1rem);
+    line-height: 1.25;
+}
+
+h3 {
+    margin: 26px 0 18px;
+    font-size: clamp(1.3rem, 4.5vw, 1.75rem);
+}
+
+p {
+    margin: 10px 0;
+}
+
+label {
+    display: block;
+    margin: 18px 0 7px;
+    font-weight: 700;
+}
+
+input,
+select,
+textarea {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    margin: 0 0 14px;
+    padding: 11px 13px;
+    direction: rtl;
+    color: var(--text);
+    background: #ffffff;
+    border: 1px solid #8b949e;
+    border-radius: 8px;
+    font: inherit;
+}
+
+input[type="file"] {
+    padding: 10px;
+    background: #f8fafc;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--primary);
+    outline: 3px solid rgba(34, 87, 131, 0.16);
+}
+
 button {
-    background-color: #1f4e79;
-    color: white;
-    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    margin: 6px 3px;
     padding: 12px 20px;
-    border-radius: 6px;
+    color: #ffffff;
+    background: var(--primary);
+    border: 0;
+    border-radius: 9px;
+    font: inherit;
+    font-weight: 700;
+    text-align: center;
     cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 button:hover {
-    background-color: #173a5a;
+    background: var(--primary-dark);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button:focus-visible {
+    outline: 3px solid rgba(34, 87, 131, 0.28);
+    outline-offset: 2px;
+}
+
+hr {
+    margin: 24px 0;
+    border: 0;
+    border-top: 1px solid var(--border);
 }
 
 .success {
-    color: green;
-    margin-top: 15px;
+    margin-top: 14px;
+    color: var(--success);
+    font-weight: 700;
+}
+
+#homeScreen > button {
+    min-width: 150px;
+}
+
+#totalsByCurrency {
+    margin-top: 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+#recentExpenses > div {
+    padding: 15px 0 !important;
+}
+
+#recentExpenses p {
+    overflow-wrap: anywhere;
+    font-size: 1.05rem;
+}
+
+#recentExpenses button,
+.delete-expense-button {
+    min-width: 128px;
+    background: var(--danger);
+}
+
+#recentExpenses button:hover,
+.delete-expense-button:hover {
+    background: var(--danger-dark);
+}
+
+#receiptPreview {
+    display: block;
+    width: auto;
+    max-width: 100% !important;
+    height: auto;
+    margin: 14px auto !important;
+    object-fit: contain;
+    border: 1px solid var(--border);
+}
+
+#ocrStatus,
+#reportStatus {
+    overflow-wrap: anywhere;
+}
+
+#signatureCanvas {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    margin: 8px 0 10px;
+    background: #ffffff;
+    border: 1px solid #8b949e !important;
+}
+
+@media (max-width: 640px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 22px 16px;
+        border-radius: 15px;
+    }
+
+    h1 {
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    #homeScreen > button,
+    #setupScreen > button,
+    #addExpenseScreen > button,
+    #setupScreen > div > button {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        margin: 8px 0;
+    }
+
+    #recentExpenses button,
+    .delete-expense-button {
+        width: 100%;
+        margin: 8px 0 0;
+    }
+
+    #recentExpenses p {
+        margin-bottom: 8px !important;
+        font-size: 1rem;
+    }
+
+    input,
+    select,
+    textarea {
+        min-height: 50px;
+        font-size: 16px;
+    }
+
+    button {
+        min-height: 52px;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 380px) {
+    body {
+        padding: 6px;
+    }
+
+    .container {
+        padding: 18px 12px;
+    }
 }
