@@ -63,6 +63,7 @@
             <button type="button" id="showAddExpenseButton">➕ הוצאה חדשה</button>
             <button type="button" id="generateReportButton">📄 הפק טופס</button>
             <button type="button" id="showSettingsButton">⚙️ הגדרות</button>
+            <button type="button" id="deleteAllExpensesButton">🗑️ מחק הכל</button>
 
             <div id="reportStatus" style="display:none;margin-top:12px;padding:12px;background:#eef5fb;border-radius:8px;"></div>
             <hr>
@@ -466,22 +467,22 @@
                 const department = localStorage.getItem("department") || "";
                 const reportDate = formatReportDate(new Date());
 
-                drawRtlText(context, fullName, 748 * scale, 88 * scale, 9 * scale, true);
-                drawRtlText(context, department, 748 * scale, 104 * scale, 8 * scale, false);
+                drawCenteredText(context, fullName, 650 * scale, 88 * scale, 8 * scale, true);
+                drawCenteredText(context, department, 650 * scale, 104 * scale, 7.5 * scale, false);
                 drawCenteredText(context, reportDate, 540 * scale, 88 * scale, 8 * scale, false);
 
                 const rowStartY = 157.3;
                 const rowHeight = 13.2;
                 expenses.slice(0, 20).forEach(function (expense, index) {
                     const y = (rowStartY + index * rowHeight) * scale;
-                    drawCenteredText(context, index + 1, 749 * scale, y, 6.8 * scale, false);
-                    drawCenteredText(context, expense.date || "", 686 * scale, y, 6.6 * scale, false);
+                    // Row numbers already exist in the original template.
+                    drawCenteredText(context, expense.date || "", 694 * scale, y, 6.2 * scale, false);
                     const description = expense.description || expense.vendor || "";
-                    drawRtlText(context, description.slice(0, 28), 651 * scale, y, 6.4 * scale, false);
+                    drawRtlText(context, description.slice(0, 25), 654 * scale, y, 6.1 * scale, false);
                     drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), categoryColumnX(expense.category, scale), y, 7 * scale, false);
                     drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), 195 * scale, y, 6.2 * scale, false);
                     if (expense.guests) drawRtlText(context, expense.guests.slice(0, 20), 158 * scale, y, 6.2 * scale, false);
-                    if (expense.invoiceNumber) drawCenteredText(context, expense.invoiceNumber.slice(0, 16), 82 * scale, y, 6 * scale, false);
+                    // Invoice number is stored in the app but is not printed in the admin-only reference column.
                 });
 
                 const totals = {};
@@ -492,11 +493,11 @@
                 const totalsText = Object.keys(totals).map(function (currency) {
                     return formatMoney(totals[currency], currency);
                 }).join(" / ");
-                drawCenteredText(context, totalsText, 286 * scale, 438 * scale, 7.2 * scale, true);
-                drawCenteredText(context, fullName, 699 * scale, 505 * scale, 7 * scale, false);
-                drawCenteredText(context, reportDate, 699 * scale, 541 * scale, 7 * scale, false);
-                drawCenteredText(context, approver.trim(), 518 * scale, 505 * scale, 7 * scale, false);
-                drawCenteredText(context, reportDate, 518 * scale, 541 * scale, 7 * scale, false);
+                drawCenteredText(context, totalsText, 253 * scale, 449 * scale, 6.8 * scale, true);
+                drawCenteredText(context, fullName, 700 * scale, 535 * scale, 6.6 * scale, false);
+                drawCenteredText(context, reportDate, 700 * scale, 570 * scale, 6.6 * scale, false);
+                drawCenteredText(context, approver.trim(), 520 * scale, 535 * scale, 6.6 * scale, false);
+                drawCenteredText(context, reportDate, 520 * scale, 570 * scale, 6.6 * scale, false);
 
                 const signatureImage = new Image();
                 await new Promise(function (resolve, reject) {
@@ -504,7 +505,7 @@
                     signatureImage.onerror = reject;
                     signatureImage.src = savedSignature;
                 });
-                context.drawImage(signatureImage, 641 * scale, 466 * scale, 112 * scale, 34 * scale);
+                context.drawImage(signatureImage, 647 * scale, 474 * scale, 96 * scale, 28 * scale);
 
                 const jsPDF = window.jspdf && window.jspdf.jsPDF;
                 if (!jsPDF) throw new Error("jsPDF is unavailable");
@@ -531,6 +532,10 @@
 
                 report.save("Expense-Claim-" + reportDate.replaceAll(".", "-") + ".pdf");
                 status.textContent = "✅ הטופס הופק והורד למכשיר";
+
+                window.setTimeout(function () {
+                    askToDeleteGeneratedExpenses();
+                }, 400);
             } catch (error) {
                 console.error("Report generation error:", error);
                 status.textContent = "הפקת הטופס נכשלה. ודא שקובץ התבנית נמצא ב-GitHub ונסה שוב.";
@@ -683,6 +688,37 @@
             updateHomeScreen();
         }
 
+        function deleteAllExpenses() {
+            const expenses = getExpenses();
+
+            if (expenses.length === 0) {
+                alert("אין הוצאות למחיקה");
+                return;
+            }
+
+            const confirmed = window.confirm(
+                "האם למחוק את כל ההוצאות והחשבוניות? פעולה זו אינה ניתנת לביטול."
+            );
+
+            if (!confirmed) return;
+
+            localStorage.removeItem("expenses");
+            updateHomeScreen();
+            alert("כל ההוצאות והחשבוניות נמחקו");
+        }
+
+        function askToDeleteGeneratedExpenses() {
+            const confirmed = window.confirm(
+                "הטופס הופק בהצלחה. האם למחוק את החשבוניות שהופקו כבר?"
+            );
+
+            if (!confirmed) return;
+
+            localStorage.removeItem("expenses");
+            updateHomeScreen();
+            alert("החשבוניות וההוצאות שנכללו בטופס נמחקו");
+        }
+
         function clearExpenseForm() {
             document.getElementById("receiptImage").value = "";
             document.getElementById("receiptPreview").removeAttribute("src");
@@ -800,6 +836,7 @@
             document.getElementById("showSettingsButton").addEventListener("click", showSettings);
             document.getElementById("generateReportButton").addEventListener("click", generateReport);
             document.getElementById("clearSignatureButton").addEventListener("click", clearSignature);
+            document.getElementById("deleteAllExpensesButton").addEventListener("click", deleteAllExpenses);
             document.getElementById("saveExpenseButton").addEventListener("click", saveExpenseRecord);
             document.getElementById("backToHomeButton").addEventListener("click", showHomeScreen);
             document.getElementById("receiptImage").addEventListener("change", handleReceiptSelection);
