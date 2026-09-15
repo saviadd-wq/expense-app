@@ -6,6 +6,8 @@
     <title>Expense App</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -31,7 +33,15 @@
                 <option>אחר</option>
             </select>
 
+            <label>חתימת המבקש</label>
+            <p>יש לחתום פעם אחת. החתימה תישמר במכשיר.</p>
+            <canvas id="signatureCanvas" width="600" height="180" style="width:100%;height:140px;border:1px solid #999;border-radius:8px;touch-action:none;background:white;"></canvas>
+            <div>
+                <button type="button" id="clearSignatureButton">נקה חתימה</button>
+            </div>
+
             <button type="button" id="saveUserButton">שמירה</button>
+            <div id="signatureStatus" class="success"></div>
             <div id="savedMessage" class="success"></div>
         </div>
 
@@ -51,9 +61,10 @@
             </div>
 
             <button type="button" id="showAddExpenseButton">➕ הוצאה חדשה</button>
-            <button type="button">📄 הפק טופס</button>
+            <button type="button" id="generateReportButton">📄 הפק טופס</button>
             <button type="button" id="showSettingsButton">⚙️ הגדרות</button>
 
+            <div id="reportStatus" style="display:none;margin-top:12px;padding:12px;background:#eef5fb;border-radius:8px;"></div>
             <hr>
             <h3>הוצאות אחרונות</h3>
             <div id="recentExpenses">אין הוצאות עדיין</div>
@@ -76,6 +87,9 @@
 
             <label for="vendor">ספק</label>
             <input type="text" id="vendor">
+
+            <label for="invoiceNumber">מספר חשבונית</label>
+            <input type="text" id="invoiceNumber" inputmode="text">
 
             <label for="amount">סכום</label>
             <input type="text" id="amount" placeholder="0.00" inputmode="decimal">
@@ -208,6 +222,20 @@
             return "ILS";
         }
 
+        function extractInvoiceNumberFromText(text) {
+            const patterns = [
+                /(?:מס(?:פר|׳|')?\s*(?:חשבונית|קבלה)|חשבונית\s*מס(?:פר|׳|')?|invoice\s*(?:no\.?|number|#)|receipt\s*(?:no\.?|number|#))\s*[:#.-]?\s*([A-Z0-9\/-]{2,30})/i,
+                /(?:document\s*(?:no\.?|number|#))\s*[:#.-]?\s*([A-Z0-9\/-]{2,30})/i
+            ];
+
+            for (const pattern of patterns) {
+                const match = String(text || "").match(pattern);
+                if (match && match[1]) return match[1].trim();
+            }
+
+            return "";
+        }
+
         function extractVendorFromText(text) {
             const ignored = /(חשבונית|קבלה|מקור|העתק|עוסק|ח\.פ|מספר|תאריך|סה.?כ|total|טלפון|כתובת)/i;
             const lines = text.split(/\r?\n/).map(function (line) {
@@ -251,9 +279,11 @@
                 const vendor = extractVendorFromText(text);
                 const amount = extractAmountFromText(text);
                 const currency = extractCurrencyFromText(text);
+                const invoiceNumber = extractInvoiceNumberFromText(text);
 
                 if (date) document.getElementById("expenseDate").value = date;
                 if (vendor) document.getElementById("vendor").value = vendor;
+                if (invoiceNumber) document.getElementById("invoiceNumber").value = invoiceNumber;
                 if (amount !== "") document.getElementById("amount").value = Number(amount).toFixed(2);
                 document.getElementById("currency").value = currency;
 
@@ -283,6 +313,245 @@
             preview.style.display = "block";
 
             runReceiptOcr(file);
+        }
+
+        const signatureCanvas = document.getElementById("signatureCanvas");
+        const signatureContext = signatureCanvas.getContext("2d");
+        let signatureDrawing = false;
+        let signatureHasInk = false;
+
+        function signaturePoint(event) {
+            const rect = signatureCanvas.getBoundingClientRect();
+            const source = event.touches ? event.touches[0] : event;
+            return {
+                x: (source.clientX - rect.left) * (signatureCanvas.width / rect.width),
+                y: (source.clientY - rect.top) * (signatureCanvas.height / rect.height)
+            };
+        }
+
+        function startSignature(event) {
+            event.preventDefault();
+            signatureDrawing = true;
+            const point = signaturePoint(event);
+            signatureContext.beginPath();
+            signatureContext.moveTo(point.x, point.y);
+        }
+
+        function drawSignature(event) {
+            if (!signatureDrawing) return;
+            event.preventDefault();
+            const point = signaturePoint(event);
+            signatureContext.lineWidth = 3;
+            signatureContext.lineCap = "round";
+            signatureContext.strokeStyle = "#111";
+            signatureContext.lineTo(point.x, point.y);
+            signatureContext.stroke();
+            signatureHasInk = true;
+        }
+
+        function stopSignature(event) {
+            if (event) event.preventDefault();
+            signatureDrawing = false;
+        }
+
+        function clearSignature() {
+            signatureContext.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+            signatureHasInk = false;
+            localStorage.removeItem("employeeSignature");
+            document.getElementById("signatureStatus").textContent = "החתימה נמחקה";
+        }
+
+        function loadSavedSignature() {
+            const saved = localStorage.getItem("employeeSignature");
+            if (!saved) return;
+            const image = new Image();
+            image.onload = function () {
+                signatureContext.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+                signatureContext.drawImage(image, 0, 0, signatureCanvas.width, signatureCanvas.height);
+                signatureHasInk = true;
+                document.getElementById("signatureStatus").textContent = "✅ חתימה שמורה";
+            };
+            image.src = saved;
+        }
+
+        function formatReportDate(date) {
+            return String(date.getDate()).padStart(2, "0") + "." +
+                String(date.getMonth() + 1).padStart(2, "0") + "." +
+                String(date.getFullYear()).slice(-2);
+        }
+
+        function drawRtlText(context, text, x, y, size, bold) {
+            context.save();
+            context.direction = "rtl";
+            context.textAlign = "right";
+            context.textBaseline = "middle";
+            context.fillStyle = "#111";
+            context.font = (bold ? "bold " : "") + size + "px Arial";
+            context.fillText(String(text || ""), x, y);
+            context.restore();
+        }
+
+        function drawCenteredText(context, text, x, y, size, bold) {
+            context.save();
+            context.direction = "rtl";
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillStyle = "#111";
+            context.font = (bold ? "bold " : "") + size + "px Arial";
+            context.fillText(String(text || ""), x, y);
+            context.restore();
+        }
+
+        async function renderTemplateCanvas() {
+            if (!window.pdfjsLib) throw new Error("PDF.js is unavailable");
+            pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+            const response = await fetch("expense-claim-template.pdf");
+            if (!response.ok) throw new Error("Template file was not found");
+            const data = await response.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: data }).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 2 });
+            const canvas = document.createElement("canvas");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise;
+            return canvas;
+        }
+
+        function categoryColumnX(category, scale) {
+            const map = {
+                "כיבודים למשרד": 526,
+                "נסיעות": 484,
+                "אש״ל": 442,
+                "הוצאות רכב": 400,
+                "אירוח לקוחות וספקים מקומי": 358,
+                "אירוח לקוחות וספקים חו״ל": 316,
+                "ציוד משרדי": 274,
+                "הוצאות אחרות": 232
+            };
+            return (map[category] || 232) * scale;
+        }
+
+        async function generateReport() {
+            const expenses = getExpenses();
+            if (expenses.length === 0) {
+                alert("אין הוצאות להפקת טופס");
+                return;
+            }
+
+            const approver = window.prompt("מי מאשר את הטופס?");
+            if (!approver || !approver.trim()) return;
+
+            const savedSignature = localStorage.getItem("employeeSignature");
+            if (!savedSignature) {
+                alert("יש להוסיף חתימה בהגדרות לפני הפקת הטופס");
+                showSettings();
+                return;
+            }
+
+            const status = document.getElementById("reportStatus");
+            status.style.display = "block";
+            status.textContent = "מפיק את הטופס...";
+
+            try {
+                const templateCanvas = await renderTemplateCanvas();
+                const canvas = document.createElement("canvas");
+                canvas.width = templateCanvas.width;
+                canvas.height = templateCanvas.height;
+                const context = canvas.getContext("2d");
+                context.drawImage(templateCanvas, 0, 0);
+
+                const scale = canvas.width / 792;
+                const fullName = localStorage.getItem("fullName") || "";
+                const department = localStorage.getItem("department") || "";
+                const reportDate = formatReportDate(new Date());
+
+                drawRtlText(context, fullName, 716 * scale, 84 * scale, 10 * scale, true);
+                drawRtlText(context, department, 716 * scale, 105 * scale, 10 * scale, false);
+                drawRtlText(context, reportDate, 716 * scale, 126 * scale, 10 * scale, false);
+
+                const rowStartY = 198;
+                const rowHeight = 13.6;
+                expenses.slice(0, 20).forEach(function (expense, index) {
+                    const y = (rowStartY + index * rowHeight) * scale;
+                    drawCenteredText(context, index + 1, 767 * scale, y, 7.5 * scale, false);
+                    drawCenteredText(context, expense.date || "", 735 * scale, y, 7.5 * scale, false);
+                    const description = expense.description || expense.vendor || "";
+                    drawRtlText(context, description.slice(0, 44), 690 * scale, y, 7.2 * scale, false);
+                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), categoryColumnX(expense.category, scale), y, 7 * scale, false);
+                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), 191 * scale, y, 7 * scale, false);
+                    if (expense.guests) drawRtlText(context, expense.guests.slice(0, 24), 150 * scale, y, 6.8 * scale, false);
+                    if (expense.invoiceNumber) drawRtlText(context, expense.invoiceNumber.slice(0, 18), 94 * scale, y, 6.5 * scale, false);
+                });
+
+                const totals = {};
+                expenses.forEach(function (expense) {
+                    const currency = expense.currency || "ILS";
+                    totals[currency] = (totals[currency] || 0) + Number(expense.amount || 0);
+                });
+                const totalsText = Object.keys(totals).map(function (currency) {
+                    return formatMoney(totals[currency], currency);
+                }).join(" / ");
+                drawCenteredText(context, totalsText, 190 * scale, 487 * scale, 8 * scale, true);
+                drawRtlText(context, fullName, 716 * scale, 535 * scale, 8 * scale, false);
+                drawRtlText(context, reportDate, 716 * scale, 570 * scale, 8 * scale, false);
+                drawRtlText(context, approver.trim(), 470 * scale, 535 * scale, 8 * scale, false);
+                drawRtlText(context, reportDate, 470 * scale, 570 * scale, 8 * scale, false);
+
+                const signatureImage = new Image();
+                await new Promise(function (resolve, reject) {
+                    signatureImage.onload = resolve;
+                    signatureImage.onerror = reject;
+                    signatureImage.src = savedSignature;
+                });
+                context.drawImage(signatureImage, 570 * scale, 500 * scale, 120 * scale, 42 * scale);
+
+                const jsPDF = window.jspdf && window.jspdf.jsPDF;
+                if (!jsPDF) throw new Error("jsPDF is unavailable");
+                const report = new jsPDF({ orientation: "landscape", unit: "pt", format: [792, 612] });
+                report.addImage(canvas.toDataURL("image/jpeg", 0.94), "JPEG", 0, 0, 792, 612);
+
+                status.textContent = "מוסיף את החשבוניות...";
+                for (const expense of expenses) {
+                    if (!expense.receiptImage) continue;
+                    const image = new Image();
+                    await new Promise(function (resolve, reject) {
+                        image.onload = resolve;
+                        image.onerror = reject;
+                        image.src = expense.receiptImage;
+                    });
+                    report.addPage("a4", image.width >= image.height ? "landscape" : "portrait");
+                    const pageWidth = report.internal.pageSize.getWidth();
+                    const pageHeight = report.internal.pageSize.getHeight();
+                    const ratio = Math.min((pageWidth - 40) / image.width, (pageHeight - 40) / image.height);
+                    const width = image.width * ratio;
+                    const height = image.height * ratio;
+                    report.addImage(expense.receiptImage, "JPEG", (pageWidth - width) / 2, (pageHeight - height) / 2, width, height);
+                }
+
+                report.save("Expense-Claim-" + reportDate.replaceAll(".", "-") + ".pdf");
+                status.textContent = "✅ הטופס הופק והורד למכשיר";
+            } catch (error) {
+                console.error("Report generation error:", error);
+                status.textContent = "הפקת הטופס נכשלה. ודא שקובץ התבנית נמצא ב-GitHub ונסה שוב.";
+            }
+        }
+
+        function compressReceipt(file) {
+            return new Promise(function (resolve, reject) {
+                const image = new Image();
+                image.onload = function () {
+                    const maxDimension = 1400;
+                    const ratio = Math.min(1, maxDimension / Math.max(image.width, image.height));
+                    const canvas = document.createElement("canvas");
+                    canvas.width = Math.round(image.width * ratio);
+                    canvas.height = Math.round(image.height * ratio);
+                    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL("image/jpeg", 0.78));
+                };
+                image.onerror = reject;
+                image.src = URL.createObjectURL(file);
+            });
         }
 
         function getExpenses() {
@@ -422,6 +691,7 @@
             document.getElementById("ocrStatus").textContent = "ממתין לתמונה";
             document.getElementById("expenseDate").value = "";
             document.getElementById("vendor").value = "";
+            document.getElementById("invoiceNumber").value = "";
             document.getElementById("amount").value = "";
             document.getElementById("currency").value = "ILS";
             document.getElementById("category").value = "הוצאות רכב";
@@ -430,7 +700,7 @@
             document.getElementById("guests").value = "";
         }
 
-        function saveExpenseRecord() {
+        async function saveExpenseRecord() {
             const date = document.getElementById("expenseDate").value.trim();
             const vendor = document.getElementById("vendor").value.trim();
             const amountText = document.getElementById("amount").value;
@@ -451,15 +721,27 @@
                 return;
             }
 
+            let receiptImage = "";
+            const receiptFile = document.getElementById("receiptImage").files[0];
+            if (receiptFile) {
+                try {
+                    receiptImage = await compressReceipt(receiptFile);
+                } catch (error) {
+                    console.error("Receipt compression error:", error);
+                }
+            }
+
             const expense = {
                 date: date,
                 vendor: vendor,
+                invoiceNumber: document.getElementById("invoiceNumber").value.trim(),
                 amount: amount,
                 currency: document.getElementById("currency").value || "ILS",
                 category: document.getElementById("category").value,
                 description: document.getElementById("description").value.trim(),
                 carNumber: document.getElementById("carNumber").value.trim(),
-                guests: document.getElementById("guests").value.trim()
+                guests: document.getElementById("guests").value.trim(),
+                receiptImage: receiptImage
             };
 
             const expenses = getExpenses();
@@ -504,6 +786,10 @@
 
             localStorage.setItem("fullName", fullName);
             localStorage.setItem("department", department);
+            if (signatureHasInk) {
+                localStorage.setItem("employeeSignature", signatureCanvas.toDataURL("image/png"));
+                document.getElementById("signatureStatus").textContent = "✅ חתימה שמורה";
+            }
             document.getElementById("savedMessage").textContent = "✅ הנתונים נשמרו בהצלחה";
             showHomeScreen();
         }
@@ -512,9 +798,20 @@
             document.getElementById("saveUserButton").addEventListener("click", saveUser);
             document.getElementById("showAddExpenseButton").addEventListener("click", showAddExpense);
             document.getElementById("showSettingsButton").addEventListener("click", showSettings);
+            document.getElementById("generateReportButton").addEventListener("click", generateReport);
+            document.getElementById("clearSignatureButton").addEventListener("click", clearSignature);
             document.getElementById("saveExpenseButton").addEventListener("click", saveExpenseRecord);
             document.getElementById("backToHomeButton").addEventListener("click", showHomeScreen);
             document.getElementById("receiptImage").addEventListener("change", handleReceiptSelection);
+
+            signatureCanvas.addEventListener("mousedown", startSignature);
+            signatureCanvas.addEventListener("mousemove", drawSignature);
+            signatureCanvas.addEventListener("mouseup", stopSignature);
+            signatureCanvas.addEventListener("mouseleave", stopSignature);
+            signatureCanvas.addEventListener("touchstart", startSignature, { passive: false });
+            signatureCanvas.addEventListener("touchmove", drawSignature, { passive: false });
+            signatureCanvas.addEventListener("touchend", stopSignature, { passive: false });
+            loadSavedSignature();
 
             const fullName = localStorage.getItem("fullName");
             const department = localStorage.getItem("department");
