@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense App</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -44,10 +45,10 @@
                 הוצאות
             </p>
 
-            <p>
-                סה"כ:
-                <strong id="totalAmount">₪0.00</strong>
-            </p>
+            <div>
+                <strong>סה"כ לפי מטבע:</strong>
+                <div id="totalsByCurrency">₪0.00</div>
+            </div>
 
             <button type="button" id="showAddExpenseButton">➕ הוצאה חדשה</button>
             <button type="button">📄 הפק טופס</button>
@@ -64,6 +65,12 @@
             <label for="receiptImage">חשבונית</label>
             <input type="file" id="receiptImage" accept="image/*">
 
+            <img id="receiptPreview" alt="תצוגה מקדימה של החשבונית" style="display:none;max-width:100%;max-height:320px;margin:12px 0;border-radius:8px;">
+
+            <div id="ocrStatus" style="display:none;margin:12px 0;padding:12px;background:#eef5fb;border-radius:8px;">
+                ממתין לתמונה
+            </div>
+
             <label for="expenseDate">תאריך</label>
             <input type="text" id="expenseDate" placeholder="15.09.26" inputmode="numeric">
 
@@ -72,6 +79,29 @@
 
             <label for="amount">סכום</label>
             <input type="text" id="amount" placeholder="0.00" inputmode="decimal">
+
+            <label for="currency">מטבע</label>
+            <select id="currency">
+                <option value="ILS">ש״ח (ILS)</option>
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="EUR">EUR</option>
+                <option value="CAD">CAD</option>
+                <option value="AUD">AUD</option>
+                <option value="JPY">JPY</option>
+                <option value="CHF">CHF</option>
+                <option value="CNY">CNY</option>
+                <option value="HKD">HKD</option>
+                <option value="SGD">SGD</option>
+                <option value="INR">INR</option>
+                <option value="AED">AED</option>
+                <option value="THB">THB</option>
+                <option value="TRY">TRY</option>
+                <option value="ZAR">ZAR</option>
+                <option value="MXN">MXN</option>
+                <option value="BRL">BRL</option>
+                <option value="OTHER">אחר</option>
+            </select>
 
             <label for="category">קטגוריה</label>
             <select id="category">
@@ -101,6 +131,160 @@
     </div>
 
     <script>
+        function normalizeOcrDate(day, month, year) {
+            const normalizedYear = String(year).length === 4
+                ? String(year).slice(-2)
+                : String(year).padStart(2, "0");
+
+            return String(day).padStart(2, "0") + "." +
+                String(month).padStart(2, "0") + "." + normalizedYear;
+        }
+
+        function extractDateFromText(text) {
+            const match = text.match(/\b(0?[1-9]|[12]\d|3[01])[.\/-](0?[1-9]|1[0-2])[.\/-](\d{2}|\d{4})\b/);
+            return match ? normalizeOcrDate(match[1], match[2], match[3]) : "";
+        }
+
+        function extractAmountFromText(text) {
+            const lines = text.split(/\r?\n/).map(function (line) {
+                return line.trim();
+            }).filter(Boolean);
+
+            const totalWords = /(סה.?כ|לתשלום|סכום לתשלום|total|amount|grand total)/i;
+            const numberPattern = /(?:₪\s*)?(\d{1,6}(?:[,.]\d{2})?)(?:\s*₪)?/g;
+            const keywordCandidates = [];
+
+            lines.forEach(function (line) {
+                if (!totalWords.test(line)) return;
+
+                const matches = Array.from(line.matchAll(numberPattern));
+                matches.forEach(function (match) {
+                    const value = Number(match[1].replace(",", "."));
+                    if (Number.isFinite(value) && value > 0) keywordCandidates.push(value);
+                });
+            });
+
+            if (keywordCandidates.length > 0) {
+                return Math.max.apply(null, keywordCandidates);
+            }
+
+            const decimalCandidates = [];
+            const decimalPattern = /(?:₪\s*)?(\d{1,5}[,.]\d{2})(?:\s*₪)?/g;
+            const matches = Array.from(text.matchAll(decimalPattern));
+
+            matches.forEach(function (match) {
+                const value = Number(match[1].replace(",", "."));
+                if (Number.isFinite(value) && value > 0) decimalCandidates.push(value);
+            });
+
+            return decimalCandidates.length > 0
+                ? Math.max.apply(null, decimalCandidates)
+                : "";
+        }
+
+        function extractCurrencyFromText(text) {
+            const upper = String(text || "").toUpperCase();
+
+            if (/\b(ILS|NIS)\b/.test(upper) || /₪/.test(text)) return "ILS";
+            if (/\bUSD\b/.test(upper) || /US\s*\$/.test(upper)) return "USD";
+            if (/\bGBP\b/.test(upper) || /£/.test(text)) return "GBP";
+            if (/\bEUR\b/.test(upper) || /€/.test(text)) return "EUR";
+            if (/\bCAD\b/.test(upper) || /C\$/.test(upper)) return "CAD";
+            if (/\bAUD\b/.test(upper) || /A\$/.test(upper)) return "AUD";
+            if (/\bJPY\b/.test(upper) || /¥/.test(text)) return "JPY";
+            if (/\bCHF\b/.test(upper)) return "CHF";
+            if (/\bCNY\b/.test(upper) || /RMB/.test(upper)) return "CNY";
+            if (/\bHKD\b/.test(upper) || /HK\$/.test(upper)) return "HKD";
+            if (/\bSGD\b/.test(upper) || /S\$/.test(upper)) return "SGD";
+            if (/\bINR\b/.test(upper) || /₹/.test(text)) return "INR";
+            if (/\bAED\b/.test(upper)) return "AED";
+            if (/\bTHB\b/.test(upper) || /฿/.test(text)) return "THB";
+            if (/\bTRY\b/.test(upper) || /₺/.test(text)) return "TRY";
+            if (/\bZAR\b/.test(upper)) return "ZAR";
+            if (/\bMXN\b/.test(upper)) return "MXN";
+            if (/\bBRL\b/.test(upper) || /R\$/.test(upper)) return "BRL";
+
+            if (/\$/.test(text)) return "USD";
+            return "ILS";
+        }
+
+        function extractVendorFromText(text) {
+            const ignored = /(חשבונית|קבלה|מקור|העתק|עוסק|ח\.פ|מספר|תאריך|סה.?כ|total|טלפון|כתובת)/i;
+            const lines = text.split(/\r?\n/).map(function (line) {
+                return line.replace(/[^\u0590-\u05FFa-zA-Z0-9 &'".-]/g, " ")
+                    .replace(/\s+/g, " ")
+                    .trim();
+            });
+
+            return lines.find(function (line) {
+                return line.length >= 2 &&
+                    line.length <= 60 &&
+                    /[\u0590-\u05FFa-zA-Z]/.test(line) &&
+                    !ignored.test(line);
+            }) || "";
+        }
+
+        async function runReceiptOcr(file) {
+            const status = document.getElementById("ocrStatus");
+            status.style.display = "block";
+            status.textContent = "מכין את מנוע ה-OCR...";
+
+            if (!window.Tesseract) {
+                status.textContent = "לא ניתן לטעון את מנוע ה-OCR. בדוק את החיבור לאינטרנט ונסה שוב.";
+                return;
+            }
+
+            try {
+                const result = await Tesseract.recognize(file, "heb+eng", {
+                    logger: function (message) {
+                        if (message.status === "recognizing text") {
+                            const percent = Math.round((message.progress || 0) * 100);
+                            status.textContent = "מנתח את החשבונית... " + percent + "%";
+                        } else {
+                            status.textContent = "מכין את מנוע ה-OCR...";
+                        }
+                    }
+                });
+
+                const text = result.data.text || "";
+                const date = extractDateFromText(text);
+                const vendor = extractVendorFromText(text);
+                const amount = extractAmountFromText(text);
+                const currency = extractCurrencyFromText(text);
+
+                if (date) document.getElementById("expenseDate").value = date;
+                if (vendor) document.getElementById("vendor").value = vendor;
+                if (amount !== "") document.getElementById("amount").value = Number(amount).toFixed(2);
+                document.getElementById("currency").value = currency;
+
+                if (date || vendor || amount !== "") {
+                    status.textContent = "✅ הסריקה הסתיימה. נא לבדוק את הפרטים ולתקן במידת הצורך.";
+                } else {
+                    status.textContent = "הסריקה הסתיימה, אך לא זוהו פרטים. אפשר למלא את השדות ידנית.";
+                }
+            } catch (error) {
+                console.error("OCR error:", error);
+                status.textContent = "הסריקה נכשלה. אפשר לנסות תמונה ברורה יותר או למלא ידנית.";
+            }
+        }
+
+        function handleReceiptSelection(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith("image/")) {
+                alert("נא לבחור קובץ תמונה");
+                event.target.value = "";
+                return;
+            }
+
+            const preview = document.getElementById("receiptPreview");
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = "block";
+
+            runReceiptOcr(file);
+        }
+
         function getExpenses() {
             const stored = localStorage.getItem("expenses");
             if (!stored) return [];
@@ -141,19 +325,44 @@
             });
         }
 
+        function currencySymbol(currency) {
+            const symbols = { ILS: "₪", USD: "$", GBP: "£", EUR: "€", JPY: "¥", INR: "₹", THB: "฿", TRY: "₺" };
+            return symbols[currency] || (currency + " ");
+        }
+
+        function formatMoney(value, currency) {
+            return currencySymbol(currency || "ILS") + formatAmount(value);
+        }
+
         function updateHomeScreen() {
             const expenses = getExpenses();
             const countElement = document.getElementById("expenseCount");
-            const totalElement = document.getElementById("totalAmount");
+            const totalsElement = document.getElementById("totalsByCurrency");
             const listElement = document.getElementById("recentExpenses");
 
             countElement.textContent = expenses.length;
 
-            const total = expenses.reduce(function (sum, expense) {
-                return sum + Number(expense.amount || 0);
-            }, 0);
+            const totals = {};
+            expenses.forEach(function (expense) {
+                const currency = expense.currency || "ILS";
+                totals[currency] = (totals[currency] || 0) + Number(expense.amount || 0);
+            });
 
-            totalElement.textContent = "₪" + formatAmount(total);
+            const currencyOrder = ["ILS", "USD", "GBP", "EUR"];
+            const currencies = Object.keys(totals).sort(function (a, b) {
+                const ai = currencyOrder.indexOf(a);
+                const bi = currencyOrder.indexOf(b);
+                if (ai === -1 && bi === -1) return a.localeCompare(b);
+                if (ai === -1) return 1;
+                if (bi === -1) return -1;
+                return ai - bi;
+            });
+
+            totalsElement.innerHTML = currencies.length
+                ? currencies.map(function (currency) {
+                    return "<div>" + formatMoney(totals[currency], currency) + "</div>";
+                }).join("")
+                : "₪0.00";
 
             if (expenses.length === 0) {
                 listElement.textContent = "אין הוצאות עדיין";
@@ -169,8 +378,8 @@
                     '<div style="margin-bottom:15px;padding-bottom:12px;border-bottom:1px solid #ddd;">' +
                         '<p style="margin:0 0 8px 0;">' +
                             escapeHtml(expense.date) + " | " +
-                            escapeHtml(expense.vendor) + " | ₪" +
-                            formatAmount(expense.amount) +
+                            escapeHtml(expense.vendor) + " | " +
+                            formatMoney(expense.amount, expense.currency || "ILS") +
                         '</p>' +
                         '<button type="button" class="delete-expense-button" data-index="' + index + '">🗑️ מחיקה</button>' +
                     '</div>';
@@ -207,9 +416,14 @@
 
         function clearExpenseForm() {
             document.getElementById("receiptImage").value = "";
+            document.getElementById("receiptPreview").removeAttribute("src");
+            document.getElementById("receiptPreview").style.display = "none";
+            document.getElementById("ocrStatus").style.display = "none";
+            document.getElementById("ocrStatus").textContent = "ממתין לתמונה";
             document.getElementById("expenseDate").value = "";
             document.getElementById("vendor").value = "";
             document.getElementById("amount").value = "";
+            document.getElementById("currency").value = "ILS";
             document.getElementById("category").value = "הוצאות רכב";
             document.getElementById("description").value = "";
             document.getElementById("carNumber").value = "";
@@ -241,6 +455,7 @@
                 date: date,
                 vendor: vendor,
                 amount: amount,
+                currency: document.getElementById("currency").value || "ILS",
                 category: document.getElementById("category").value,
                 description: document.getElementById("description").value.trim(),
                 carNumber: document.getElementById("carNumber").value.trim(),
@@ -299,6 +514,7 @@
             document.getElementById("showSettingsButton").addEventListener("click", showSettings);
             document.getElementById("saveExpenseButton").addEventListener("click", saveExpenseRecord);
             document.getElementById("backToHomeButton").addEventListener("click", showHomeScreen);
+            document.getElementById("receiptImage").addEventListener("change", handleReceiptSelection);
 
             const fullName = localStorage.getItem("fullName");
             const department = localStorage.getItem("department");
