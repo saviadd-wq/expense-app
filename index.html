@@ -420,16 +420,16 @@
 
         function categoryColumnX(category, scale) {
             const map = {
-                "כיבודים למשרד": 526,
-                "נסיעות": 484,
-                "אש״ל": 442,
-                "הוצאות רכב": 400,
-                "אירוח לקוחות וספקים מקומי": 358,
-                "אירוח לקוחות וספקים חו״ל": 316,
-                "ציוד משרדי": 274,
-                "הוצאות אחרות": 232
+                "כיבודים למשרד": 604,
+                "נסיעות": 562,
+                "אש״ל": 520,
+                "הוצאות רכב": 478,
+                "אירוח לקוחות וספקים מקומי": 436,
+                "אירוח לקוחות וספקים חו״ל": 394,
+                "ציוד משרדי": 352,
+                "הוצאות אחרות": 294
             };
-            return (map[category] || 232) * scale;
+            return (map[category] || 294) * scale;
         }
 
         async function generateReport() {
@@ -466,22 +466,22 @@
                 const department = localStorage.getItem("department") || "";
                 const reportDate = formatReportDate(new Date());
 
-                drawRtlText(context, fullName, 716 * scale, 84 * scale, 10 * scale, true);
-                drawRtlText(context, department, 716 * scale, 105 * scale, 10 * scale, false);
-                drawRtlText(context, reportDate, 716 * scale, 126 * scale, 10 * scale, false);
+                drawRtlText(context, fullName, 748 * scale, 88 * scale, 9 * scale, true);
+                drawRtlText(context, department, 748 * scale, 104 * scale, 8 * scale, false);
+                drawCenteredText(context, reportDate, 540 * scale, 88 * scale, 8 * scale, false);
 
-                const rowStartY = 198;
-                const rowHeight = 13.6;
+                const rowStartY = 157.3;
+                const rowHeight = 13.2;
                 expenses.slice(0, 20).forEach(function (expense, index) {
                     const y = (rowStartY + index * rowHeight) * scale;
-                    drawCenteredText(context, index + 1, 767 * scale, y, 7.5 * scale, false);
-                    drawCenteredText(context, expense.date || "", 735 * scale, y, 7.5 * scale, false);
+                    drawCenteredText(context, index + 1, 749 * scale, y, 6.8 * scale, false);
+                    drawCenteredText(context, expense.date || "", 686 * scale, y, 6.6 * scale, false);
                     const description = expense.description || expense.vendor || "";
-                    drawRtlText(context, description.slice(0, 44), 690 * scale, y, 7.2 * scale, false);
+                    drawRtlText(context, description.slice(0, 28), 651 * scale, y, 6.4 * scale, false);
                     drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), categoryColumnX(expense.category, scale), y, 7 * scale, false);
-                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), 191 * scale, y, 7 * scale, false);
-                    if (expense.guests) drawRtlText(context, expense.guests.slice(0, 24), 150 * scale, y, 6.8 * scale, false);
-                    if (expense.invoiceNumber) drawRtlText(context, expense.invoiceNumber.slice(0, 18), 94 * scale, y, 6.5 * scale, false);
+                    drawCenteredText(context, formatMoney(expense.amount, expense.currency || "ILS"), 195 * scale, y, 6.2 * scale, false);
+                    if (expense.guests) drawRtlText(context, expense.guests.slice(0, 20), 158 * scale, y, 6.2 * scale, false);
+                    if (expense.invoiceNumber) drawCenteredText(context, expense.invoiceNumber.slice(0, 16), 82 * scale, y, 6 * scale, false);
                 });
 
                 const totals = {};
@@ -492,11 +492,11 @@
                 const totalsText = Object.keys(totals).map(function (currency) {
                     return formatMoney(totals[currency], currency);
                 }).join(" / ");
-                drawCenteredText(context, totalsText, 190 * scale, 487 * scale, 8 * scale, true);
-                drawRtlText(context, fullName, 716 * scale, 535 * scale, 8 * scale, false);
-                drawRtlText(context, reportDate, 716 * scale, 570 * scale, 8 * scale, false);
-                drawRtlText(context, approver.trim(), 470 * scale, 535 * scale, 8 * scale, false);
-                drawRtlText(context, reportDate, 470 * scale, 570 * scale, 8 * scale, false);
+                drawCenteredText(context, totalsText, 286 * scale, 438 * scale, 7.2 * scale, true);
+                drawCenteredText(context, fullName, 699 * scale, 505 * scale, 7 * scale, false);
+                drawCenteredText(context, reportDate, 699 * scale, 541 * scale, 7 * scale, false);
+                drawCenteredText(context, approver.trim(), 518 * scale, 505 * scale, 7 * scale, false);
+                drawCenteredText(context, reportDate, 518 * scale, 541 * scale, 7 * scale, false);
 
                 const signatureImage = new Image();
                 await new Promise(function (resolve, reject) {
@@ -504,7 +504,7 @@
                     signatureImage.onerror = reject;
                     signatureImage.src = savedSignature;
                 });
-                context.drawImage(signatureImage, 570 * scale, 500 * scale, 120 * scale, 42 * scale);
+                context.drawImage(signatureImage, 641 * scale, 466 * scale, 112 * scale, 34 * scale);
 
                 const jsPDF = window.jspdf && window.jspdf.jsPDF;
                 if (!jsPDF) throw new Error("jsPDF is unavailable");
