@@ -1,55 +1,51 @@
 <!DOCTYPE html>
 <html lang="he">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense App</title>
-<link rel="stylesheet" href="
+    style.css
 </head>
-</div>
-    
+
 <body>
-<div class="container">
 
-    <h1>Expense App</h1>
+    <div class="container">
 
-    <h2>הגדרה ראשונית</h2>
+        <h1>Expense App</h1>
 
-    <p>הנתונים נשמרים במכשיר וימולאו אוטומטית בטופסי ההוצאות.</p>
+        <h2>הגדרה ראשונית</h2>
 
-    <form id="setupForm">
+        <p>הנתונים נשמרים במכשיר וימולאו אוטומטית בטופסי ההוצאות.</p>
 
-        <label>שם מלא</label>
-        <br>
-        <input type="text" id="fullName" style="width:300px;padding:8px;">
-        <br><br>
+        <form id="setupForm">
 
-        <label>מחלקה</label>
-        <br>
-        <select id="department" style="width:320px;padding:8px;">
-            <option value="">בחר מחלקה</option>
-            <option>שיווק</option>
-            <option>מכירות</option>
-            <option>כספים</option>
-            <option>תפעול</option>
-            <option>משאבי אנוש</option>
-            <option>מו״פ</option>
-            <option>פיתוח עסקי</option>
-            <option>שירות</option>
-            <option>אחר</option>
-        </select>
+            <label>שם מלא</label>
+            <input type="text" id="fullName">
 
-        <br><br>
+            <label>מחלקה</label>
+            <select id="department">
+                <option value="">בחר מחלקה</option>
+                <option>שיווק</option>
+                <option>מכירות</option>
+                <option>כספים</option>
+                <option>תפעול</option>
+                <option>משאבי אנוש</option>
+                <option>מו״פ</option>
+                <option>פיתוח עסקי</option>
+                <option>שירות</option>
+                <option>אחר</option>
+            </select>
 
-        <button type="button" onclick="saveUser()">
-            שמירה
-        </button>
+            <button type="button" onclick="saveUser()">
+                שמירה
+            </button>
 
-    </form>
+        </form>
 
-    <br>
+        <div id="savedMessage" class="success"></div>
 
-    <div id="savedMessage"></div>
+    </div>
 
     <script>
 
@@ -61,7 +57,7 @@
             const department =
                 document.getElementById("department").value;
 
-            if(fullName === "" || department === "") {
+            if (fullName === "" || department === "") {
 
                 alert("נא למלא שם ומחלקה");
 
@@ -84,7 +80,7 @@
                 "✅ הנתונים נשמרו בהצלחה";
         }
 
-        window.onload = function() {
+        window.onload = function () {
 
             const fullName =
                 localStorage.getItem("fullName");
@@ -92,13 +88,13 @@
             const department =
                 localStorage.getItem("department");
 
-            if(fullName) {
+            if (fullName) {
                 document.getElementById(
                     "fullName"
                 ).value = fullName;
             }
 
-            if(department) {
+            if (department) {
                 document.getElementById(
                     "department"
                 ).value = department;
@@ -108,4 +104,5 @@
     </script>
 
 </body>
+
 </html>
