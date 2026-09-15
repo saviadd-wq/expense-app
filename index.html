@@ -63,6 +63,9 @@
             <button type="button" id="showAddExpenseButton">➕ הוצאה חדשה</button>
             <button type="button" id="generateReportButton">📄 הפק טופס</button>
             <button type="button" id="showSettingsButton">⚙️ הגדרות</button>
+            <button type="button" id="exportBackupButton">⬇️ ייצוא גיבוי</button>
+            <button type="button" id="importBackupButton">⬆️ שחזור מגיבוי</button>
+            <input type="file" id="backupFileInput" accept="application/json,.json" style="display:none;">
             <button type="button" id="deleteAllExpensesButton">🗑️ מחק הכל</button>
 
             <div id="reportStatus" style="display:none;margin-top:12px;padding:12px;background:#eef5fb;border-radius:8px;"></div>
@@ -72,7 +75,7 @@
         </div>
 
         <div id="addExpenseScreen" style="display:none;">
-            <h1>הוצאה חדשה</h1>
+            <h1 id="expenseFormTitle">הוצאה חדשה</h1>
 
             <label for="receiptImage">חשבונית</label>
             <input type="file" id="receiptImage" accept="image/*">
@@ -613,6 +616,19 @@
             return currencySymbol(currency || "ILS") + formatAmount(value);
         }
 
+        let editingExpenseIndex = null;
+
+        function dataUrlToPreview(dataUrl) {
+            const preview = document.getElementById("receiptPreview");
+            if (!dataUrl) {
+                preview.removeAttribute("src");
+                preview.style.display = "none";
+                return;
+            }
+            preview.src = dataUrl;
+            preview.style.display = "block";
+        }
+
         function updateHomeScreen() {
             const expenses = getExpenses();
             const countElement = document.getElementById("expenseCount");
@@ -660,17 +676,50 @@
                             escapeHtml(expense.vendor) + " | " +
                             formatMoney(expense.amount, expense.currency || "ILS") +
                         '</p>' +
+                        '<button type="button" class="edit-expense-button" data-index="' + index + '">✏️ עריכה</button>' +
                         '<button type="button" class="delete-expense-button" data-index="' + index + '">🗑️ מחיקה</button>' +
                     '</div>';
             }
 
             listElement.innerHTML = html;
 
+            document.querySelectorAll(".edit-expense-button").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    editExpense(Number(button.dataset.index));
+                });
+            });
+
             document.querySelectorAll(".delete-expense-button").forEach(function (button) {
                 button.addEventListener("click", function () {
                     deleteExpense(Number(button.dataset.index));
                 });
             });
+        }
+
+        function editExpense(index) {
+            const expenses = getExpenses();
+            const expense = expenses[index];
+
+            if (!expense) {
+                alert("לא ניתן למצוא את ההוצאה לעריכה");
+                return;
+            }
+
+            editingExpenseIndex = index;
+            document.getElementById("expenseFormTitle").textContent = "עריכת הוצאה";
+            document.getElementById("saveExpenseButton").textContent = "שמור שינויים";
+            document.getElementById("expenseDate").value = expense.date || "";
+            document.getElementById("vendor").value = expense.vendor || "";
+            document.getElementById("invoiceNumber").value = expense.invoiceNumber || "";
+            document.getElementById("amount").value = expense.amount || "";
+            document.getElementById("currency").value = expense.currency || "ILS";
+            document.getElementById("category").value = expense.category || "הוצאות רכב";
+            document.getElementById("description").value = expense.description || "";
+            document.getElementById("carNumber").value = expense.carNumber || "";
+            document.getElementById("guests").value = expense.guests || "";
+            dataUrlToPreview(expense.receiptImage || "");
+            document.getElementById("ocrStatus").style.display = "none";
+            showAddExpense(true);
         }
 
         function deleteExpense(index) {
@@ -691,6 +740,70 @@
             expenses.splice(index, 1);
             storeExpenses(expenses);
             updateHomeScreen();
+        }
+
+        function exportBackup() {
+            const backup = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                fullName: localStorage.getItem("fullName") || "",
+                department: localStorage.getItem("department") || "",
+                employeeSignature: localStorage.getItem("employeeSignature") || "",
+                expenses: getExpenses()
+            };
+
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "expense-app-backup-" + formatReportDate(new Date()).replaceAll(".", "-") + ".json";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            alert("✅ קובץ הגיבוי הורד למכשיר");
+        }
+
+        function openBackupPicker() {
+            document.getElementById("backupFileInput").click();
+        }
+
+        async function importBackup(event) {
+            const file = event.target.files && event.target.files[0];
+            event.target.value = "";
+            if (!file) return;
+
+            try {
+                const backup = JSON.parse(await file.text());
+                if (!backup || !Array.isArray(backup.expenses)) {
+                    throw new Error("Invalid backup");
+                }
+
+                const confirmed = window.confirm(
+                    "השחזור יחליף את הנתונים הקיימים באפליקציה. להמשיך?"
+                );
+                if (!confirmed) return;
+
+                localStorage.setItem("expenses", JSON.stringify(backup.expenses));
+                if (typeof backup.fullName === "string") localStorage.setItem("fullName", backup.fullName);
+                if (typeof backup.department === "string") localStorage.setItem("department", backup.department);
+                if (typeof backup.employeeSignature === "string" && backup.employeeSignature) {
+                    localStorage.setItem("employeeSignature", backup.employeeSignature);
+                } else {
+                    localStorage.removeItem("employeeSignature");
+                }
+
+                document.getElementById("fullName").value = backup.fullName || "";
+                document.getElementById("department").value = backup.department || "";
+                signatureContext.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+                signatureHasInk = false;
+                loadSavedSignature();
+                showHomeScreen();
+                alert("✅ הגיבוי שוחזר בהצלחה");
+            } catch (error) {
+                console.error("Backup import error:", error);
+                alert("לא ניתן לשחזר את הקובץ. ודא שזהו קובץ גיבוי תקין של האפליקציה.");
+            }
         }
 
         function deleteAllExpenses() {
@@ -725,6 +838,9 @@
         }
 
         function clearExpenseForm() {
+            editingExpenseIndex = null;
+            document.getElementById("expenseFormTitle").textContent = "הוצאה חדשה";
+            document.getElementById("saveExpenseButton").textContent = "שמור";
             document.getElementById("receiptImage").value = "";
             document.getElementById("receiptPreview").removeAttribute("src");
             document.getElementById("receiptPreview").style.display = "none";
@@ -762,7 +878,12 @@
                 return;
             }
 
+            const expenses = getExpenses();
             let receiptImage = "";
+            if (editingExpenseIndex !== null && expenses[editingExpenseIndex]) {
+                receiptImage = expenses[editingExpenseIndex].receiptImage || "";
+            }
+
             const receiptFile = document.getElementById("receiptImage").files[0];
             if (receiptFile) {
                 try {
@@ -785,12 +906,16 @@
                 receiptImage: receiptImage
             };
 
-            const expenses = getExpenses();
-            expenses.push(expense);
+            if (editingExpenseIndex !== null && expenses[editingExpenseIndex]) {
+                expenses[editingExpenseIndex] = expense;
+            } else {
+                expenses.push(expense);
+            }
             storeExpenses(expenses);
 
+            const wasEditing = editingExpenseIndex !== null;
             clearExpenseForm();
-            alert("✅ ההוצאה נשמרה");
+            alert(wasEditing ? "✅ השינויים נשמרו" : "✅ ההוצאה נשמרה");
             showHomeScreen();
         }
 
@@ -804,7 +929,10 @@
             updateHomeScreen();
         }
 
-        function showAddExpense() {
+        function showAddExpense(keepFormData) {
+            if (!keepFormData) {
+                clearExpenseForm();
+            }
             document.getElementById("setupScreen").style.display = "none";
             document.getElementById("homeScreen").style.display = "none";
             document.getElementById("addExpenseScreen").style.display = "block";
@@ -842,6 +970,9 @@
             document.getElementById("generateReportButton").addEventListener("click", generateReport);
             document.getElementById("clearSignatureButton").addEventListener("click", clearSignature);
             document.getElementById("deleteAllExpensesButton").addEventListener("click", deleteAllExpenses);
+            document.getElementById("exportBackupButton").addEventListener("click", exportBackup);
+            document.getElementById("importBackupButton").addEventListener("click", openBackupPicker);
+            document.getElementById("backupFileInput").addEventListener("change", importBackup);
             document.getElementById("saveExpenseButton").addEventListener("click", saveExpenseRecord);
             document.getElementById("backToHomeButton").addEventListener("click", showHomeScreen);
             document.getElementById("receiptImage").addEventListener("change", handleReceiptSelection);
