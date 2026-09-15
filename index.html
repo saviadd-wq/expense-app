@@ -12,7 +12,9 @@
 
     <div class="container">
 
-        <div id="setupScreen">
+        <!-- מסך הגדרות -->
+
+        <div id="setupScreen" style="display:none;">
 
             <h1>Expense App</h1>
 
@@ -46,6 +48,8 @@
 
         </div>
 
+        <!-- מסך בית -->
+
         <div id="homeScreen" style="display:none;">
 
             <h1>Expense App</h1>
@@ -63,7 +67,7 @@
                 <strong id="totalAmount">₪0</strong>
             </p>
 
-            <button>
+            <button onclick="showAddExpense()">
                 ➕ הוצאה חדשה
             </button>
 
@@ -85,21 +89,231 @@
 
         </div>
 
+        <!-- מסך הוצאה חדשה -->
+
+        <div id="addExpenseScreen" style="display:none;">
+
+            <h1>הוצאה חדשה</h1>
+
+            <label>חשבונית</label>
+            <input type="file" id="receiptImage">
+
+            <label>תאריך</label>
+            <input type="text" id="expenseDate" placeholder="15.09.26">
+
+            <label>ספק</label>
+            <input type="text" id="vendor">
+
+            <label>סכום</label>
+            <input type="number" id="amount">
+
+            <label>קטגוריה</label>
+            <select id="category">
+                <option>הוצאות רכב</option>
+                <option>כיבודים למשרד</option>
+                <option>נסיעות</option>
+                <option>אש״ל</option>
+                <option>אירוח לקוחות וספקים מקומי</option>
+                <option>אירוח לקוחות וספקים חו״ל</option>
+                <option>ציוד משרדי</option>
+                <option>הוצאות אחרות</option>
+            </select>
+
+            <label>תיאור</label>
+            <input type="text" id="description">
+
+            <label>מספר רכב (אופציונלי)</label>
+            <input type="text" id="carNumber">
+
+            <label>אורחים (אופציונלי)</label>
+            <input type="text" id="guests">
+
+            <br><br>
+
+            <button onclick="saveExpenseRecord()">
+                שמור
+            </button>
+
+            <button onclick="backToHome()">
+                חזור
+            </button>
+
+        </div>
+
     </div>
 
     <script>
 
+        function getExpenses() {
+
+            const expenses =
+                localStorage.getItem("expenses");
+
+            if (!expenses) {
+                return [];
+            }
+
+            return JSON.parse(expenses);
+        }
+
+        function updateHomeScreen() {
+
+            const expenses =
+                getExpenses();
+
+            document.getElementById(
+                "expenseCount"
+            ).innerText =
+                expenses.length;
+
+            let total = 0;
+
+            expenses.forEach(expense => {
+
+                total += Number(
+                    expense.amount || 0
+                );
+            });
+
+            document.getElementById(
+                "totalAmount"
+            ).innerText =
+                "₪" + total;
+
+            const recentExpenses =
+                document.getElementById(
+                    "recentExpenses"
+                );
+
+            if(expenses.length === 0) {
+
+                recentExpenses.innerHTML =
+                    "אין הוצאות עדיין";
+
+                return;
+            }
+
+            let html = "";
+
+            expenses
+                .slice()
+                .reverse()
+                .forEach(expense => {
+
+                    html +=
+                    "<p>" +
+                    expense.date +
+                    " | " +
+                    expense.vendor +
+                    " | ₪" +
+                    expense.amount +
+                    "</p>";
+                });
+
+            recentExpenses.innerHTML =
+                html;
+        }
+
+        function saveExpenseRecord() {
+
+            const expense = {
+
+                date:
+                    document.getElementById(
+                        "expenseDate"
+                    ).value,
+
+                vendor:
+                    document.getElementById(
+                        "vendor"
+                    ).value,
+
+                amount:
+                    document.getElementById(
+                        "amount"
+                    ).value,
+
+                category:
+                    document.getElementById(
+                        "category"
+                    ).value,
+
+                description:
+                    document.getElementById(
+                        "description"
+                    ).value,
+
+                carNumber:
+                    document.getElementById(
+                        "carNumber"
+                    ).value,
+
+                guests:
+                    document.getElementById(
+                        "guests"
+                    ).value
+            };
+
+            const expenses =
+                getExpenses();
+
+            expenses.push(expense);
+
+            localStorage.setItem(
+                "expenses",
+                JSON.stringify(expenses)
+            );
+
+            alert("✅ ההוצאה נשמרה");
+
+            backToHome();
+        }
+
+        function showAddExpense() {
+
+            document.getElementById(
+                "homeScreen"
+            ).style.display =
+                "none";
+
+            document.getElementById(
+                "addExpenseScreen"
+            ).style.display =
+                "block";
+        }
+
+        function backToHome() {
+
+            document.getElementById(
+                "addExpenseScreen"
+            ).style.display =
+                "none";
+
+            document.getElementById(
+                "homeScreen"
+            ).style.display =
+                "block";
+
+            updateHomeScreen();
+        }
+
         function saveUser() {
 
             const fullName =
-                document.getElementById("fullName").value;
+                document.getElementById(
+                    "fullName"
+                ).value;
 
             const department =
-                document.getElementById("department").value;
+                document.getElementById(
+                    "department"
+                ).value;
 
             if (!fullName || !department) {
 
-                alert("נא למלא שם ומחלקה");
+                alert(
+                    "נא למלא שם ומחלקה"
+                );
 
                 return;
             }
@@ -120,62 +334,87 @@
         function loadHomeScreen() {
 
             const fullName =
-                localStorage.getItem("fullName");
-
-            if (!fullName) {
-                return;
-            }
+                localStorage.getItem(
+                    "fullName"
+                );
 
             document.getElementById(
                 "setupScreen"
-            ).style.display = "none";
+            ).style.display =
+                "none";
+
+            document.getElementById(
+                "addExpenseScreen"
+            ).style.display =
+                "none";
 
             document.getElementById(
                 "homeScreen"
-            ).style.display = "block";
+            ).style.display =
+                "block";
 
             document.getElementById(
                 "welcomeTitle"
             ).innerHTML =
                 "שלום " + fullName;
+
+            updateHomeScreen();
         }
 
         function showSettings() {
 
             document.getElementById(
                 "homeScreen"
-            ).style.display = "none";
+            ).style.display =
+                "none";
 
             document.getElementById(
                 "setupScreen"
-            ).style.display = "block";
+            ).style.display =
+                "block";
         }
 
         window.onload = function () {
 
             const fullName =
-                localStorage.getItem("fullName");
+                localStorage.getItem(
+                    "fullName"
+                );
 
             const department =
-                localStorage.getItem("department");
+                localStorage.getItem(
+                    "department"
+                );
 
             if (fullName) {
 
                 document.getElementById(
                     "fullName"
-                ).value = fullName;
+                ).value =
+                    fullName;
             }
 
             if (department) {
 
                 document.getElementById(
                     "department"
-                ).value = department;
+                ).value =
+                    department;
             }
 
-            if (fullName && department) {
+            if (
+                fullName &&
+                department
+            ) {
 
                 loadHomeScreen();
+
+            } else {
+
+                document.getElementById(
+                    "setupScreen"
+                ).style.display =
+                    "block";
             }
         };
 
