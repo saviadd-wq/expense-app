@@ -5,25 +5,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense App</title>
-<link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
     <div class="container">
 
-        <h1>Expense App</h1>
+        <div id="setupScreen">
 
-        <h2>הגדרה ראשונית</h2>
+            <h1>Expense App</h1>
 
-        <p>הנתונים נשמרים במכשיר וימולאו אוטומטית בטופסי ההוצאות.</p>
+            <h2>הגדרה ראשונית</h2>
 
-        <form id="setupForm">
+            <p>הנתונים נשמרים במכשיר וימולאו אוטומטית בטופסי ההוצאות.</p>
 
             <label>שם מלא</label>
             <input type="text" id="fullName">
 
             <label>מחלקה</label>
+
             <select id="department">
                 <option value="">בחר מחלקה</option>
                 <option>שיווק</option>
@@ -37,13 +38,52 @@
                 <option>אחר</option>
             </select>
 
-            <button type="button" onclick="saveUser()">
+            <button onclick="saveUser()">
                 שמירה
             </button>
 
-        </form>
+            <div id="savedMessage" class="success"></div>
 
-        <div id="savedMessage" class="success"></div>
+        </div>
+
+        <div id="homeScreen" style="display:none;">
+
+            <h1>Expense App</h1>
+
+            <h2 id="welcomeTitle"></h2>
+
+            <p>
+                החודש:
+                <strong id="expenseCount">0</strong>
+                הוצאות
+            </p>
+
+            <p>
+                סה"כ:
+                <strong id="totalAmount">₪0</strong>
+            </p>
+
+            <button>
+                ➕ הוצאה חדשה
+            </button>
+
+            <button>
+                📄 הפק טופס
+            </button>
+
+            <button onclick="showSettings()">
+                ⚙️ הגדרות
+            </button>
+
+            <hr>
+
+            <h3>הוצאות אחרונות</h3>
+
+            <div id="recentExpenses">
+                אין הוצאות עדיין
+            </div>
+
+        </div>
 
     </div>
 
@@ -57,7 +97,7 @@
             const department =
                 document.getElementById("department").value;
 
-            if (fullName === "" || department === "") {
+            if (!fullName || !department) {
 
                 alert("נא למלא שם ומחלקה");
 
@@ -74,10 +114,41 @@
                 department
             );
 
+            loadHomeScreen();
+        }
+
+        function loadHomeScreen() {
+
+            const fullName =
+                localStorage.getItem("fullName");
+
+            if (!fullName) {
+                return;
+            }
+
             document.getElementById(
-                "savedMessage"
+                "setupScreen"
+            ).style.display = "none";
+
+            document.getElementById(
+                "homeScreen"
+            ).style.display = "block";
+
+            document.getElementById(
+                "welcomeTitle"
             ).innerHTML =
-                "✅ הנתונים נשמרו בהצלחה";
+                "שלום " + fullName;
+        }
+
+        function showSettings() {
+
+            document.getElementById(
+                "homeScreen"
+            ).style.display = "none";
+
+            document.getElementById(
+                "setupScreen"
+            ).style.display = "block";
         }
 
         window.onload = function () {
@@ -89,15 +160,22 @@
                 localStorage.getItem("department");
 
             if (fullName) {
+
                 document.getElementById(
                     "fullName"
                 ).value = fullName;
             }
 
             if (department) {
+
                 document.getElementById(
                     "department"
                 ).value = department;
+            }
+
+            if (fullName && department) {
+
+                loadHomeScreen();
             }
         };
 
