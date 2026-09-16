@@ -1,0 +1,20 @@
+{
+  "name": "Expense App",
+  "short_name": "Expenses",
+  "description": "אפליקציה לניהול והפקת דוחות החזר הוצאות",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#225783",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
